@@ -1,183 +1,160 @@
 import { useState, useEffect } from 'react';
-import { servicesService } from '@/services/techServices.services'; // Ajusta la ruta
-import type { Service } from "@/store/backend.response";
+import { useAuthStore } from '@/store/backend.response';
+import { useServiciosStore, useFilteredServicios } from '@/store/backend.response';
+import { useCategoriasStore } from '@/store/backend.response';
+import { ImageUpload } from './ImageUpload';
+import { ServicioCardSkeletonGrid } from './ServicioCardSkeleton';
+import type { Servicio } from '../store/types';
 
-interface DashboardProps {
-  onLogout: () => void;
-}
+export function Dashboard() {
+  const { user, logout } = useAuthStore();
+  const {
+    servicios,
+    searchQuery,
+    setSearchQuery,
+    fetchServicios,
+    createServicio,
+    updateServicio,
+    deleteServicio,
+    isLoading,
+  } = useServiciosStore();
 
-export function Dashboard({ onLogout }: DashboardProps) {
-  const [services, setServices] = useState<Service[]>([]);
-  const [filteredServices, setFilteredServices] = useState<Service[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
+  const { categoriaSeleccionada, categorias, setCategoria, extractCategoriasFromServicios } = useCategoriasStore();
+  const filteredServicios = useFilteredServicios(categoriaSeleccionada);
+
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingService, setEditingService] = useState<Service | null>(null);
+  const [editingService, setEditingService] = useState<Servicio | null>(null);
   const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    price: '',
-    category: '',
+    nombre: '',
+    descripcion: '',
+    precio_base: '',
+    categoria: '',
+    duracion_estimada_minutos: '',
+    imagen: null as File | null,
   });
 
-  useEffect(() => {
-    fetchServices();
-  }, []);
+  useEffect(() => { fetchServicios(); }, [fetchServicios]);
+  useEffect(() => { extractCategoriasFromServicios(servicios); }, [servicios]);
 
-  useEffect(() => {
-    const query = searchQuery.toLowerCase();
-    const filtered = services.filter(
-      (s) =>
-        s.name.toLowerCase().includes(query) ||
-        s.description.toLowerCase().includes(query) ||
-        s.category.toLowerCase().includes(query)
-    );
-    setFilteredServices(filtered);
-  }, [searchQuery, services]);
-
-  const fetchServices = async () => {
-    try {
-      const data = await servicesService.getAll();
-      setServices(data);
-    } catch (error) {
-      alert('Error al cargar los servicios');
-    }
-  };
-
-  const handleCreateOrUpdate = async (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    const serviceData: any = {
-      ...formData,
-      price: parseFloat(formData.price),
-    };
-
     try {
-      if (editingService?.id) {
-        await servicesService.update(editingService.id, serviceData);
+      const payload = {
+        ...formData,
+        precio_base: parseFloat(formData.precio_base),
+        duracion_estimada_minutos: formData.duracion_estimada_minutos ? parseInt(formData.duracion_estimada_minutos) : undefined,
+        imagen: formData.imagen || undefined
+      };
+
+      if (editingService) {
+        await updateServicio(editingService.id, payload);
       } else {
-        await servicesService.create(serviceData);
+        await createServicio(payload as any);
       }
       setIsDialogOpen(false);
       resetForm();
-      fetchServices();
-    } catch (error) {
-      alert('Error al guardar el servicio');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error al guardar');
     }
-  };
-
-  const handleDelete = async (id: number) => {
-    if (!confirm('¿Estás seguro de eliminar este servicio?')) return;
-    try {
-      await servicesService.delete(id);
-      fetchServices();
-    } catch (error) {
-      alert('Error al eliminar');
-    }
-  };
-
-  const handleEdit = (service: Service) => {
-    setEditingService(service);
-    setFormData({
-      name: service.name,
-      description: service.description,
-      price: service.price.toString(),
-      category: service.category,
-    });
-    setIsDialogOpen(true);
   };
 
   const resetForm = () => {
-    setFormData({ name: '', description: '', price: '', category: '' });
+    setFormData({ nombre: '', descripcion: '', precio_base: '', categoria: '', duracion_estimada_minutos: '', imagen: null });
     setEditingService(null);
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* HEADER */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-linear-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
-                <i className="fas fa-server text-white text-xl"></i>
-              </div>
-              <div>
-                <h1 className="font-bold text-gray-900 leading-none">TechServices Hub</h1>
-                <p className="text-[10px] uppercase tracking-wider text-gray-500 mt-1 font-semibold">Admin Panel</p>
-              </div>
+    <div className="min-h-screen bg-gray-50 font-sans text-gray-900">
+      {/* Header */}
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-20 px-6 py-4">
+        <div className="max-w-7xl mx-auto flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white">⚙️</div>
+            <div>
+              <h1 className="font-bold text-lg">TechServices Hub</h1>
+              <p className="text-xs text-gray-500">Bienvenido, {user?.nombre}</p>
             </div>
-            <button
-              onClick={onLogout}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
-            >
-              <i className="fas fa-sign-out-alt"></i>
-              <span className="hidden sm:inline">Cerrar Sesión</span>
-            </button>
           </div>
+          <button onClick={logout} className="text-sm font-medium text-red-600 hover:text-red-700 flex items-center gap-1">
+            <span>🚪</span> Salir
+          </button>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* TOP BAR */}
+      <main className="max-w-7xl mx-auto p-6">
+        {/* Actions Bar */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-          <div>
-            <h2 className="text-2xl font-extrabold text-gray-900">Mis Servicios</h2>
-            <p className="text-gray-500 text-sm">{filteredServices.length} registros encontrados</p>
+          <div className="w-full md:max-w-md relative">
+            <span className="absolute left-3 top-3">🔍</span>
+            <input
+              className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 outline-none"
+              placeholder="Buscar por nombre o categoría..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
           <button
             onClick={() => { resetForm(); setIsDialogOpen(true); }}
-            className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-bold flex items-center justify-center gap-2 transition-all transform hover:scale-[1.02] active:scale-95 shadow-lg shadow-blue-200"
+            className="px-5 py-2.5 bg-blue-600 text-white rounded-xl font-semibold shadow-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
           >
-            <i className="fas fa-plus"></i>
-            Nuevo Servicio
+            <span>+</span> Nuevo Servicio
           </button>
         </div>
 
-        {/* SEARCH BAR */}
-        <div className="relative mb-8">
-          <i className="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
-          <input
-            type="text"
-            placeholder="Buscar por nombre, categoría o descripción..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 bg-white border border-gray-200 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-gray-700"
-          />
+        {/* Categorías (Tabs) */}
+        <div className="flex gap-2 overflow-x-auto pb-4 mb-6 scrollbar-hide">
+          <button
+            onClick={() => setCategoria(null)}
+            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors shrink-0 ${!categoriaSeleccionada ? 'bg-blue-600 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+          >
+            Todos
+          </button>
+          {categorias.map(cat => (
+            <button
+              key={cat}
+              onClick={() => setCategoria(cat)}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors shrink-0 ${categoriaSeleccionada === cat ? 'bg-blue-600 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+            >
+              {cat}
+            </button>
+          ))}
         </div>
 
-        {/* GRID DE SERVICIOS */}
-        {filteredServices.length === 0 ? (
-          <div className="bg-white rounded-2xl border-2 border-dashed border-gray-200 p-12 text-center">
-            <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
-              <i className="fas fa-folder-open text-gray-300 text-3xl"></i>
-            </div>
-            <h3 className="text-lg font-bold text-gray-900">No hay servicios que mostrar</h3>
-            <p className="text-gray-500 mt-1">Prueba a cambiar tu búsqueda o agrega uno nuevo.</p>
+        {/* Grid Content */}
+        {isLoading ? (
+          <ServicioCardSkeletonGrid />
+        ) : filteredServicios.length === 0 ? (
+          <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-300">
+            <span className="text-4xl block mb-2">🔎</span>
+            <h3 className="text-gray-500 font-medium">No encontramos servicios</h3>
           </div>
         ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {filteredServices.map((service) => (
-              <div key={service.id} className="bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow flex flex-col">
-                <div className="p-6">
-                  <div className="flex justify-between items-start mb-3">
-                    <span className="px-2 py-1 bg-blue-50 text-blue-700 text-[10px] font-bold uppercase rounded-md tracking-wider">
-                      {service.category}
-                    </span>
-                    <div className="flex gap-2">
-                      <button onClick={() => handleEdit(service)} className="text-gray-400 hover:text-blue-600 transition-colors p-1">
-                        <i className="fas fa-edit"></i>
-                      </button>
-                      <button onClick={() => service.id && handleDelete(service.id)} className="text-gray-400 hover:text-red-600 transition-colors p-1">
-                        <i className="fas fa-trash-alt"></i>
-                      </button>
-                    </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredServicios.map((servicio) => (
+              <div key={servicio.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow overflow-hidden group">
+                <div className="relative h-40 bg-gray-100">
+                  {servicio.imagen_url ? (
+                    <img src={servicio.imagen_url} alt={servicio.nombre} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-4xl bg-gray-50">🛠️</div>
+                  )}
+                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => { setEditingService(servicio); setFormData({ ...servicio, precio_base: servicio.precio_base.toString(), duracion_estimada_minutos: servicio.duracion_estimada_minutos?.toString() || '', imagen: null } as any); setIsDialogOpen(true); }} className="p-2 bg-white/90 backdrop-blur rounded-lg shadow-sm hover:bg-white text-blue-600">✏️</button>
+                    <button onClick={() => confirm('¿Borrar?') && deleteServicio(servicio.id)} className="p-2 bg-white/90 backdrop-blur rounded-lg shadow-sm hover:bg-white text-red-600">🗑️</button>
                   </div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">{service.name}</h3>
-                  <p className="text-gray-600 text-sm line-clamp-3 mb-4 leading-relaxed">
-                    {service.description}
-                  </p>
-                  <div className="mt-auto pt-4 border-t border-gray-50 flex items-baseline justify-between">
-                    <span className="text-2xl font-black text-blue-600">${service.price.toFixed(2)}</span>
-                    <span className="text-[10px] text-gray-400 font-bold uppercase">Precio Final</span>
+                </div>
+                <div className="p-5">
+                  <div className="flex justify-between items-start mb-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{servicio.categoria}</span>
+                    <span className="text-sm font-bold text-gray-900">${servicio.precio_base}</span>
+                  </div>
+                  <h3 className="font-bold text-gray-900 mb-1">{servicio.nombre}</h3>
+                  <p className="text-sm text-gray-500 line-clamp-2 mb-4">{servicio.descripcion || 'Sin descripción'}</p>
+                  <div className="flex items-center text-xs text-gray-400 gap-3 border-t pt-3">
+                    <span className="flex items-center gap-1">⏱️ {servicio.duracion_estimada_minutos || 0} min</span>
+                    <span className={`flex items-center gap-1 ${servicio.activo ? 'text-green-500' : 'text-gray-400'}`}>
+                      ● {servicio.activo ? 'Activo' : 'Inactivo'}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -186,73 +163,62 @@ export function Dashboard({ onLogout }: DashboardProps) {
         )}
       </main>
 
-      {/* MODAL MANUAL (DIALOG) */}
+      {/* Modal Personalizado */}
       {isDialogOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-              <h3 className="text-xl font-bold text-gray-900">
-                {editingService ? 'Editar Servicio' : 'Nuevo Servicio'}
-              </h3>
-              <button onClick={() => { setIsDialogOpen(false); resetForm(); }} className="text-gray-400 hover:text-gray-600">
-                <i className="fas fa-times text-lg"></i>
-              </button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsDialogOpen(false)} />
+          <div className="bg-white rounded-2xl w-full max-w-lg relative z-10 shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center">
+              <h2 className="text-xl font-bold">{editingService ? 'Editar' : 'Nuevo'} Servicio</h2>
+              <button onClick={() => setIsDialogOpen(false)} className="text-2xl text-gray-400 hover:text-gray-600">×</button>
             </div>
-            <form onSubmit={handleCreateOrUpdate} className="p-6 space-y-4">
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Nombre del Servicio</label>
+            <form onSubmit={handleSave} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+              <div className="grid grid-cols-1 gap-4">
                 <input
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Nombre del servicio"
+                  value={formData.nombre}
+                  onChange={e => setFormData({ ...formData, nombre: e.target.value })}
                   required
-                  placeholder="Ej: Cloud Hosting"
                 />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Descripción</label>
+                <input
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Categoría"
+                  list="cats"
+                  value={formData.categoria}
+                  onChange={e => setFormData({ ...formData, categoria: e.target.value })}
+                  required
+                />
+                <datalist id="cats">{categorias.map(c => <option key={c} value={c} />)}</datalist>
                 <textarea
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none min-h-25"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  required
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Descripción"
+                  rows={2}
+                  value={formData.descripcion}
+                  onChange={e => setFormData({ ...formData, descripcion: e.target.value })}
                 />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Categoría</label>
-                  <input
-                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                    value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Precio (USD)</label>
+                <ImageUpload onChange={f => setFormData({ ...formData, imagen: f })} existingImageUrl={editingService?.imagen_url} />
+                <div className="grid grid-cols-2 gap-4">
                   <input
                     type="number"
-                    step="0.01"
-                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                    value={formData.price}
-                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Precio"
+                    value={formData.precio_base}
+                    onChange={e => setFormData({ ...formData, precio_base: e.target.value })}
                     required
+                  />
+                  <input
+                    type="number"
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Minutos"
+                    value={formData.duracion_estimada_minutos}
+                    onChange={e => setFormData({ ...formData, duracion_estimada_minutos: e.target.value })}
                   />
                 </div>
               </div>
               <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => { setIsDialogOpen(false); resetForm(); }}
-                  className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-600 font-bold rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2.5 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 shadow-md transition-colors"
-                >
-                  {editingService ? 'Guardar Cambios' : 'Crear Servicio'}
+                <button type="submit" className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors">
+                  Guardar Cambios
                 </button>
               </div>
             </form>
