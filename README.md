@@ -2,7 +2,7 @@
 
 Sistema de Gestión de Servicios Tecnológicos — Proyecto Full Stack (CRUD completo).
 
-## Integrantes del Grupo
+## 👥 Integrantes del Grupo
 
 | Nombre | Rol | GitHub |
 |--------|-----|--------|
@@ -12,11 +12,25 @@ Sistema de Gestión de Servicios Tecnológicos — Proyecto Full Stack (CRUD com
 
 ---
 
-## Estructura del Proyecto
+## 📁 Estructura del Proyecto
 
 ```
-
-server/                  # Backend (Node.js + Express + Sequelize)
+TechServices_Hub/
+├── client/                  # Frontend (React + Vite + TypeScript + Tailwind)
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── Login.tsx        # Pantalla de login con JWT
+│   │   │   └── Dashboard.tsx    # CRUD de servicios + buscador en tiempo real
+│   │   ├── services/
+│   │   │   ├── auth.service.ts      # Llamadas a /api/auth
+│   │   │   └── techServices.services.ts  # Llamadas a /api/services
+│   │   ├── store/
+│   │   │   └── backend.response.ts  # Tipos TypeScript compartidos
+│   │   ├── App.tsx              # Enrutado Login ↔ Dashboard por token
+│   │   └── main.tsx
+│   └── package.json
+│
+└── server/                  # Backend (Node.js + Express + Sequelize)
     ├── config/
     │   └── database.js          # Conexión Sequelize (MySQL)
     ├── models/
@@ -70,7 +84,7 @@ npm install
 
 ---
 
-## Ejecución
+## 🚀 Ejecución
 
 **Terminal 1 – Backend:**
 ```bash
@@ -90,7 +104,7 @@ npm run dev
 
 ---
 
-## API Endpoints
+## 🔌 API Endpoints
 
 ### Autenticación
 | Método | Endpoint | Descripción |
@@ -111,7 +125,7 @@ npm run dev
 
 ---
 
-## Funcionalidades Implementadas
+## ✅ Funcionalidades Implementadas
 
 - [x] **CRUD completo** de Servicios (Crear, Leer, Actualizar, Eliminar)
 - [x] **Validación de nombres duplicados** (a nivel Sequelize + controller)
@@ -123,7 +137,7 @@ npm run dev
 
 ---
 
-## Tecnologías
+## 🛠️ Tecnologías
 
 | Capa | Tecnología |
 |------|-----------|
@@ -135,7 +149,7 @@ npm run dev
 
 ---
 
-## Flujo de Ramas (GitHub Flow)
+## 🌿 Flujo de Ramas (GitHub Flow)
 
 ```
 main
